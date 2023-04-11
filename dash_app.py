@@ -27,6 +27,7 @@ create_tables(conn)
 data = get_all_players(conn)
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.ZEPHYR])
+server = app.server
 
 app.layout = html.Div([
     # Add player section
