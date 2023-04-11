@@ -1,0 +1,5 @@
+.leaderboard-table tbody tr:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
