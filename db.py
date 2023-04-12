@@ -91,3 +91,33 @@ def add_game_result(conn, player1, player2, winner):
 
         # Debug: print the number of rows affected
         print("Inserted game history, rows affected:", conn.total_changes)
+
+def get_table(database_name):
+    conn = sqlite3.connect(database_name)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = cursor.fetchall()
+    conn.close()
+    return [table[0] for table in tables]
+
+def get_columns(database_name, table_name):
+    conn = sqlite3.connect(database_name)
+    cursor = conn.cursor()
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    column_names = [column_info[1] for column_info in cursor.fetchall()]
+    conn.close()
+    return column_names
+
+def update_row_in_db(database_name, table_name, row_id, column_name, new_value):
+    conn = sqlite3.connect(database_name)
+    cursor = conn.cursor()
+    cursor.execute(f"UPDATE {table_name} SET {column_name} = ? WHERE id = ?", (new_value, row_id))
+    conn.commit()
+    conn.close()
+
+def delete_row_from_db(database_name, table_name, row_id):
+    conn = sqlite3.connect(database_name)
+    cursor = conn.cursor()
+    cursor.execute(f"DELETE FROM {table_name} WHERE id = ?", (row_id,))
+    conn.commit()
+    conn.close()
