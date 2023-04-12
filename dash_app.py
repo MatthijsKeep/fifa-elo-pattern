@@ -181,12 +181,18 @@ def update_leaderboard_and_add_player(
         player1_games += 1
         player2_games += 1
 
+        print(player1_games, player1_wins, player1_losses, player1_elo)
+        print(player2_games, player2_wins, player2_losses, player2_elo)
+
         # update the player attributes in the database
-        update_player(conn, (player1_elo, player1_games, player1_wins, player1_losses, player1_value))
-        update_player(conn, (player2_elo, player2_games, player2_wins, player2_losses, player2_value))
+        update_player(conn, (player1_elo, int(player1_games), int(player1_wins), int(player1_losses), player1_value))
+        update_player(conn, (player2_elo, int(player2_games), int(player2_wins), int(player2_losses), player2_value))
+
+
         
 
     data = get_all_players(conn)
+    print(data)
     conn.close()
     
     player_options = [{"label": row["name"], "value": row["name"]} for _, row in data.iterrows()]
