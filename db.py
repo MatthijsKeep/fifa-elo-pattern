@@ -3,6 +3,7 @@
 import sqlite3
 from sqlite3 import Error
 import pandas as pd
+from datetime import datetime
 
 def create_connection(db_file="leaderboard.db"):
     conn = None
@@ -56,6 +57,8 @@ def update_player(conn, player_data):
     conn.commit()
 
 
+
+
 def delete_player(conn, name):
     sql = "DELETE FROM leaderboard WHERE name=?"
     cursor = conn.cursor()
@@ -71,3 +74,20 @@ def get_game_history(conn):
     sql = "SELECT * FROM game_history"
     df = pd.read_sql_query(sql, conn)
     return df
+
+def add_game_result(conn, player1, player2, winner):
+    print("Submitting game result:", player1, player2, winner)
+    if winner == "p2_wins":
+        winner = player2
+    elif winner == "p1_wins":
+        winner = player1
+
+    # Insert game history data
+    with sqlite3.connect("leaderboard.db") as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO game_history (timestamp, player1, player2, winner) VALUES (?, ?, ?, ?)",
+                       (datetime.now(), player1, player2, winner))
+        conn.commit()
+
+        # Debug: print the number of rows affected
+        print("Inserted game history, rows affected:", conn.total_changes)

@@ -15,7 +15,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 
 # Import the required functions from db.py
-from db import create_connection, create_tables, insert_player, update_player, delete_player, get_all_players, get_game_history
+from db import create_connection, create_tables, insert_player, update_player, delete_player, get_all_players, get_game_history, add_game_result
 
 
 # Create a connection to the database and create the table if it doesn't exist
@@ -103,26 +103,6 @@ app.layout = html.Div([
     ]),
 ])
 
-@app.callback(
-    Output("remove_player_dropdown", "options"),
-    Output("player1_dropdown", "options"),
-    Output("player2_dropdown", "options"),
-    Input("add_btn", "n_clicks"),
-    State("add_name", "value"),
-    State("add_elo", "value")
-)
-def add_player(n_clicks, name, elo):
-# Replace the data manipulation lines in your add_player callback
-    if n_clicks and name and elo:
-        global data
-        conn = create_connection()
-        insert_player(conn, (name, float(elo), 0, 0, 0))
-        data = get_all_players(conn)
-        conn.close()
-    player_options = [{"label": row["name"], "value": row["name"]} for _, row in data.iterrows()]
-    return player_options, player_options, player_options
-
-
 def update_elo(rating1, rating2, k, score1):
     e1 = 1 / (1 + 10 ** ((rating2 - rating1) / 400))
     e2 = 1 / (1 + 10 ** ((rating1 - rating2) / 400))
@@ -133,87 +113,88 @@ def update_elo(rating1, rating2, k, score1):
     return new_rating1, new_rating2
 
 @app.callback(
+    Output("remove_player_dropdown", "options"),
+    Output("player1_dropdown", "options"),
+    Output("player2_dropdown", "options"),
     Output("leaderboard", "data"),
+    Input("add_btn", "n_clicks"),
     Input("remove_btn", "n_clicks"),
     Input("submit_result_btn", "n_clicks"),
+    State("add_name", "value"),
+    State("add_elo", "value"),
     State("remove_player_dropdown", "value"),
     State("player1_dropdown", "value"),
     State("player2_dropdown", "value"),
     State("game_result", "value")
 )
-def update_leaderboard(remove_n_clicks, submit_result_n_clicks, remove_value, player1, player2, game_result):
+def update_leaderboard_and_add_player(
+    add_n_clicks, remove_n_clicks, submit_n_clicks,
+    name, elo,
+    remove_player_value, player1_value, player2_value, game_result_value
+):
     global data
+    conn = create_connection()
+    changed_id = [p["prop_id"] for p in dash.callback_context.triggered][0]
 
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        return data.to_dict("records")
+    if "add_btn" in changed_id and name and elo:
+        insert_player(conn, (name, float(elo), 0, 0, 0))
 
-    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    if "remove_btn" in changed_id and remove_player_value:
+        delete_player(conn, remove_player_value)
 
-    if triggered_id == "remove_btn" and remove_value:
-        conn = create_connection()
-        delete_player(conn, remove_value)
-        data = get_all_players(conn)
-        conn.close()
-
-    if triggered_id == "submit_result_btn" and player1 and player2 and game_result:
-        conn = create_connection()
-
-        player1_elo = data.loc[data["name"] == player1, "elo"].values[0]
-        player2_elo = data.loc[data["name"] == player2, "elo"].values[0]
-
-        p1_games_played = data.loc[data["name"] == player1, "games_played"].values[0]
-        p2_games_played = data.loc[data["name"] == player2, "games_played"].values[0]
-
-        p1_wins = data.loc[data["name"] == player1, "wins"].values[0]
-        p1_losses = data.loc[data["name"] == player1, "losses"].values[0]
-
-        p2_wins = data.loc[data["name"] == player2, "wins"].values[0]
-        p2_losses = data.loc[data["name"] == player2, "losses"].values[0]
-
-        k = 32
-        if game_result == "p1_wins":
-            new_elo1, new_elo2 = update_elo(player1_elo, player2_elo, k, 1)
+    if "submit_result_btn" in changed_id and player1_value and player2_value and game_result_value:
+        add_game_result(conn, player1_value, player2_value, game_result_value)
+        print(game_result_value)
+        if game_result_value == "p1_wins":
+            game_result_value = 1
+        elif game_result_value == "p2_wins":
+            game_result_value = 0
         else:
-            new_elo1, new_elo2 = update_elo(player1_elo, player2_elo, k, 0)
+            ValueError("Invalid game result value")
+        # read in the current elo values
+        player1_elo = data.loc[data["name"] == player1_value, "elo"].values[0]
+        player2_elo = data.loc[data["name"] == player2_value, "elo"].values[0]
+        K = 32
+        # Update the player's elo
+        player1_elo, player2_elo = update_elo(player1_elo, player2_elo, K, game_result_value)
+        # round both elo to integers
+        player1_elo = int(round(player1_elo))
+        player2_elo = int(round(player2_elo))
+        # read in the other player attributes like games, wins, losses
+        print(data)
+        player1_games = data.loc[data["name"] == player1_value, "games_played"].values[0]
+        player1_wins = data.loc[data["name"] == player1_value, "wins"].values[0]
+        player1_losses = data.loc[data["name"] == player1_value, "losses"].values[0]
 
-        # Increment the appropriate values
-        p1_games_played += 1
-        p2_games_played += 1
+        player2_games = data.loc[data["name"] == player2_value, "games_played"].values[0]
+        player2_wins = data.loc[data["name"] == player2_value, "wins"].values[0]
+        player2_losses = data.loc[data["name"] == player2_value, "losses"].values[0]
 
-        if game_result == "p1_wins":
-            p1_wins += 1
-            p2_losses += 1
-            # winner is the name of player1 from data
-            winner = data.loc[data["name"] == player1, "name"].values[0]
+        # update the player attributes
+        if game_result_value == "p1_wins":
+            player1_wins += 1
+            player2_losses += 1
         else:
-            p1_losses += 1
-            p2_wins += 1
-            winner = data.loc[data["name"] == player2, "name"].values[0]
+            player1_losses += 1
+            player2_wins += 1
 
+        player1_games += 1
+        player2_games += 1
 
-        # Update player records in the database
-        update_player(conn, (int(new_elo1), int(p1_games_played), int(p1_wins), int(p1_losses), player1))
-        update_player(conn, (int(new_elo2), int(p2_games_played), int(p2_wins), int(p2_losses), player2))
+        # update the player attributes in the database
+        update_player(conn, (player1_elo, player1_games, player1_wins, player1_losses, player1_value))
+        update_player(conn, (player2_elo, player2_games, player2_wins, player2_losses, player2_value))
+        
 
-        # Fetch updated data from the database
-        data = get_all_players(conn)
+    data = get_all_players(conn)
+    conn.close()
+    
+    player_options = [{"label": row["name"], "value": row["name"]} for _, row in data.iterrows()]
+    leaderboard_data = data.to_dict("records")
+    # sort the leaderboard by elo
+    leaderboard_data = sorted(leaderboard_data, key=lambda x: x["elo"], reverse=True)
+    return player_options, player_options, player_options, leaderboard_data
 
-        print("Submitting game result:", player1, player2, winner)
-        with sqlite3.connect("leaderboard.db") as conn:
-            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO game_history (timestamp, player1, player2, winner) VALUES (?, ?, ?, ?)",
-                        (current_time, player1, player2, winner))
-            conn.commit()
-
-            # Debug: print the number of rows affected
-            print("Inserted game history, rows affected:", conn.total_changes)
-        conn.close()
-
-        data = data.sort_values(by="elo", ascending=False).reset_index(drop=True)
-
-    return data.to_dict("records")
 
 @app.callback(
     Output("game_history_table", "data"),
