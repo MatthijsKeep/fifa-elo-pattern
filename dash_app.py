@@ -191,14 +191,10 @@ def update_leaderboard(remove_n_clicks, submit_result_n_clicks, remove_value, pl
             p2_wins += 1
             winner = data.loc[data["name"] == player2, "name"].values[0]
 
-        # round the elo values
-        new_elo1 = round(new_elo1, 2)
-        new_elo2 = round(new_elo2, 2)
-
 
         # Update player records in the database
-        update_player(conn, (new_elo1, int(p1_games_played), int(p1_wins), int(p1_losses), player1))
-        update_player(conn, (new_elo2, int(p2_games_played), int(p2_wins), int(p2_losses), player2))
+        update_player(conn, (int(new_elo1), int(p1_games_played), int(p1_wins), int(p1_losses), player1))
+        update_player(conn, (int(new_elo2), int(p2_games_played), int(p2_wins), int(p2_losses), player2))
 
         # Fetch updated data from the database
         data = get_all_players(conn)
