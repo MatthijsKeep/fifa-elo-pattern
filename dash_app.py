@@ -189,8 +189,6 @@ def update_leaderboard_and_add_player(
         update_player(conn, (player2_elo, int(player2_games), int(player2_wins), int(player2_losses), player2_value))
 
 
-        
-
     data = get_all_players(conn)
     print(data)
     conn.close()
