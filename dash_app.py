@@ -174,9 +174,11 @@ def update_leaderboard_and_add_player(
         if game_result_value == "p1_wins":
             player1_wins += 1
             player2_losses += 1
-        else:
+        elif game_result_value == "p2_wins":
             player1_losses += 1
             player2_wins += 1
+        else:
+            ValueError("Invalid game result value")
 
         player1_games += 1
         player2_games += 1
